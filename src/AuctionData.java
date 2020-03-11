@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 import java.util.Calendar;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -32,7 +33,6 @@ public class AuctionData {
 
   public final void init() {
     try{
-//      String url = "/en/auction-room/nancy/2274";
       System.out.println(url);
       Document doc = Jsoup.connect("https://www.alcopa-auction.fr" + url).get();
       Elements elTime = doc.getElementsByClass("fa fa-calendar");
@@ -60,20 +60,43 @@ public class AuctionData {
           day = Integer.parseInt(date.substring(date.indexOf("of ")+3, date.indexOf(monthsArray[i])-1));
           month = i;
           year = Integer.parseInt(date.substring(date.indexOf(monthsArray[i])+monthsArray[i].length()+1, date.indexOf(" at ")));
-          city = date.substring(date.indexOf(" at ")+" at ".length()+1);
+          city = date.substring(date.indexOf(" at ") + " at ".length()+1);
           city = date.substring(0, date.indexOf(" "));
           break;
         }
       }
       calendarBegin.set(year, month, day, hourBegin, minuteBegin);
       calendarEnd.set(year, month, day, hourEnd, minuteEnd);
+      getVehiclesData();
+    } catch (IOException e) {
+      e.printStackTrace();
+    } catch (ArithmeticException e) {
+      e.printStackTrace();
+    }
+
+  }
+
+  public final void getVehiclesData() {
+    url = "/en/auction-room/nancy/2274";
+    ArrayList<String> vehiclesType = new ArrayList<>();
+    try{
+      Document doc = Jsoup.connect("https://www.alcopa-auction.fr" + url).get();
+      Elements el = doc.getElementsByClass("nav nav-tabs mb-2").select("a[href]");
+      for(var i : el){
+        String str = i.toString().substring(i.toString().indexOf("\"")+1);
+        str = str.substring(0, str.indexOf("\""));
+        vehiclesType.add(str);
+      }
 
     } catch (IOException e) {
+      e.printStackTrace();
+    } catch (ArithmeticException e) {
       e.printStackTrace();
     }
   }
 
   public String getUrl() { return url; }
+  public String getLiveUrl() { return "http://live.alcopa-auction.fr/" + auctionNr; }
   public int getPassengerVehicles() { return passengerVehicles; }
   public int getUtilityVehicles() { return utilityVehicles; }
   public int getBrokenVehicles() { return brokenVehicles; }
