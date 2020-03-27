@@ -1,14 +1,12 @@
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.nodes.Node;
-import org.jsoup.select.Elements;
-
-import java.io.IOException;
+import java.io.*;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Calendar;
 
 public class Vehicle {
+  private static String basePath;
   private String make;
   private String model;
   private String version;
@@ -31,103 +29,211 @@ public class Vehicle {
   private ArrayList<String> images = new ArrayList<>();
   private ArrayList<String> imagesDamaged = new ArrayList<>();
 
-  private String auctionURL;
+  private String showRoomUrl;
   private String technicalInspectionURL;
   private String historicVehicleURL;
 
-  public Vehicle(String auctionURL) {
-    this.auctionURL = auctionURL;
-    init();
+  public Vehicle(String showRoomUrl) {
+    this.showRoomUrl = showRoomUrl;
+    this.basePath = String.join(File.separator, "I:", "perfectvin");
   }
 
-  public final void init() {
+  private void save_to_file(String imageURL){
+    save_to_file(imageURL, "");
+  }
+
+  private void save_to_file(String imageURL, String additionalInfo){
+    String path = String.join(File.separator,  basePath, make, model, vin, "");
+
+    if (Files.notExists(Paths.get(path))) {
+      File file = new File(path);
+      boolean createdPath = file.mkdirs();
+      if(createdPath)
+        System.out.println("Directory created");
+    }
     try {
-      Document doc = Jsoup.connect(auctionURL).get();
-      captureDesciption(doc);
-      captureImages(doc);
-    } catch (IOException e){
-      e.printStackTrace();
-    }
-  }
+      String fileName = imageURL.substring(imageURL.lastIndexOf("/") + 1);
+      fileName = String.join(additionalInfo, fileName.substring(0, fileName.lastIndexOf(".")), fileName.substring(fileName.lastIndexOf(".")));
+      path = String.join(File.separator, path, fileName);
+      path = path.replace(File.separator+File.separator, File.separator);
+      if(Files.notExists(Paths.get(path))) {
+        //open the stream from URL
+        URL urlImage = new URL(imageURL);
+        InputStream in = urlImage.openStream();
 
-  private void captureDesciption(Document doc) {
-    try{
-      // get lot
-      Node eltsLot = doc.getElementsByClass("h4 mb-3").first().childNode(0);
-      lot = Integer.parseInt(eltsLot.toString().substring(eltsLot.toString().indexOf("Lot ")+4, eltsLot.toString().lastIndexOf(" ")));
+        byte[] buffer = new byte[4096];
+        OutputStream os = new FileOutputStream(path);
 
-      Elements eltsDesc = doc.getElementsByClass("pl-2 pr-5 py-1 text-nowrap");
-      Elements eltsData = doc.getElementsByClass("px-1 py-1");
-
-      Node desc = eltsDesc.first();
-      Node data = eltsData.first();
-      for(int i = 0; i < eltsDesc.size(); i++){
-        String descName = desc.childNode(0).toString();
-        String dataDesc = data.childNode(0).toString();
-        switch (descName){
-          case "Make": make = dataDesc; break;
-          case "Model": model = dataDesc; break;
-          case "Finish": version = dataDesc; break;
-          case "Warranty":
-            if(dataDesc.equals("YES"))
-              warranty = true;
-            else warranty = false;
-            break;
-          case "Registration": registration = dataDesc; break;
-          case "Fuel type": fuelType = dataDesc; break;
-          case "First produced":
-            firstProduced = Calendar.getInstance();
-            firstProduced.set(Calendar.HOUR_OF_DAY, 0);
-            firstProduced.set(Calendar.MINUTE, 0);
-            firstProduced.set(Calendar.SECOND, 0);
-            firstProduced.set(Calendar.MILLISECOND, 0);
-            firstProduced.set(Integer.parseInt(dataDesc.substring(dataDesc.lastIndexOf("/")+1)), Integer.parseInt(dataDesc.substring(dataDesc.indexOf("/")+1, dataDesc.lastIndexOf("/")))-1, Integer.parseInt(dataDesc.substring(0, dataDesc.indexOf("/"))));
-            break;
-          case "Mileage": mileage = Integer.parseInt(dataDesc.substring(0, dataDesc.indexOf("KM")-1).replace(" ", "")); break;
-          case "Serial number": vin = dataDesc; break;
-          case "Colour": color = dataDesc; break;
-          case "Recoverable VAT":
-            if(dataDesc.equals("YES"))
-              recoverableVAT = true;
-            else recoverableVAT = false;
-            break;
-          case "Type": type = dataDesc; break;
-          case "Storage location": storageLocation = dataDesc; break;
-          case "CO2": co2 = Integer.parseInt(dataDesc); break;
-          case "Gearbox":
-            if(dataDesc.equals("YES"))
-              manualGearbox = true;
-            else manualGearbox = false;
-            break;
-          default: break;
+        //write bytes to the output stream
+        int n = -1;
+        while ((n = in.read(buffer)) != -1) {
+          os.write(buffer, 0, n);
         }
-        desc = eltsDesc.get(i);
-        data = eltsData.get(i);
+        os.close();
       }
-
-    } catch (ArithmeticException e) {
-      e.printStackTrace();
-    } catch (StringIndexOutOfBoundsException e) {
+    } catch (IOException e) {
       e.printStackTrace();
     }
   }
-
-  private void captureImages(Document doc) {
-    try{
-      Elements elts = doc.select("a[data-gallery]");
-      for(int i = 1; i < elts.size(); i++){
-        images.add(elts.get(i).attr("href"));
-      }
-      // trzeba dodać sciąanie linków do jpeg uszkodzonych, &quot;http:\/\/archives-photos.alcopa-auction.fr\/photos\/AT\/AT590RT\/damages\/1582701045.jpeg&quot;},
-      int sdadascascasc =214;
-
-
-
-    }  catch (ArithmeticException e) {
-      e.printStackTrace();
-    } catch (StringIndexOutOfBoundsException e) {
-      e.printStackTrace();
+  public void save_all_images_to_files(){
+    for(String i : images){
+      save_to_file(i);
     }
+    for(String i : imagesDamaged){
+      save_to_file(i);
+    }
+  }
+
+  public void save_all_other_documents(){
+    save_to_file(technicalInspectionURL, "hist");
+    save_to_file(historicVehicleURL, "tech");
+  }
+
+  public void addOption(String optionName){
+    options.add(optionName.toLowerCase());
+  }
+
+  public void addComment(String comment){
+    comments.add(comment.toLowerCase());
+  }
+  public void addImage(String imageUrl){
+    images.add(imageUrl);
+  }
+
+  public void addImageDamaged(String imageUrl){
+    imagesDamaged.add(imageUrl);
+  }
+
+  public void setMake(String make) {
+    this.make = make.toLowerCase();
+  }
+
+  public void setModel(String model) {
+    this.model = model.toLowerCase();
+  }
+
+  public void setVersion(String version) {
+    this.version = version.toLowerCase();
+  }
+
+  public void setWarranty(boolean warranty) {
+    this.warranty = warranty;
+  }
+
+  public void setRegistration(String registration) {
+    this.registration = registration.toUpperCase();
+  }
+
+  public void setFuelType(String fuelType) {
+    this.fuelType = fuelType.toLowerCase();
+  }
+
+  public void setFirstProduced(Calendar firstProduced) {
+    this.firstProduced = firstProduced;
+  }
+
+  public void setMileage(int mileage) {
+    this.mileage = mileage;
+  }
+
+  public void setVin(String vin) {
+    this.vin = vin.toUpperCase();
+  }
+
+  public void setColor(String color) {
+    this.color = color.toLowerCase();
+  }
+
+  public void setRecoverableVAT(boolean recoverableVAT) {
+    this.recoverableVAT = recoverableVAT;
+  }
+
+  public void setType(String type) {
+    this.type = type.toLowerCase();
+  }
+
+  public void setStorageLocation(String storageLocation) {
+    this.storageLocation = storageLocation.toLowerCase();
+  }
+
+  public void setCo2(int co2) {
+    this.co2 = co2;
+  }
+
+  public void setManualGearbox(boolean manualGearbox) {
+    this.manualGearbox = manualGearbox;
+  }
+
+  public void setLot(int lot) {
+    this.lot = lot;
+  }
+
+  public void setTechnicalInspectionURL(String technicalInspectionURL) {
+    this.technicalInspectionURL = technicalInspectionURL;
+  }
+
+  public void setHistoricVehicleURL(String historicVehicleURL) {
+    this.historicVehicleURL = historicVehicleURL;
+  }
+
+  public String getColor() {
+    return color;
+  }
+
+  public String getMake() {
+    return make;
+  }
+
+  public String getModel() {
+    return model;
+  }
+
+  public String getVersion() {
+    return version;
+  }
+
+  public boolean isWarranty() {
+    return warranty;
+  }
+
+  public String getRegistration() {
+    return registration;
+  }
+
+  public String getFuelType() {
+    return fuelType;
+  }
+
+  public Calendar getFirstProduced() {
+    return firstProduced;
+  }
+
+  public int getMileage() {
+    return mileage;
+  }
+
+  public String getVin() {
+    return vin;
+  }
+
+  public boolean isRecoverableVAT() {
+    return recoverableVAT;
+  }
+
+  public String getType() {
+    return type;
+  }
+
+  public String getStorageLocation() {
+    return storageLocation;
+  }
+
+  public int getCo2() {
+    return co2;
+  }
+
+  public boolean isManualGearbox() {
+    return manualGearbox;
   }
 
   public String toString() {
@@ -151,7 +257,7 @@ public class Vehicle {
     return toReturn;
   }
 
-  public String getAuctionURL() { return auctionURL; }
+  public String getShowRoomUrl() { return showRoomUrl; }
   public int getLot() { return lot; }
   private String yesOrNo(boolean tf) { if(tf) return "Yes"; return "No";}
 
